@@ -27,10 +27,8 @@ CREATE TABLE suppliers (
 CREATE TABLE orders (
     order_id BIGINT PRIMARY KEY,
     customer_id BIGINT NOT NULL,
-    supplier_id BIGINT NOT NULL,
     order_date DATE NOT NULL CHECK (order_date <= CURRENT_DATE),
-    FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
-    FOREIGN KEY (supplier_id) REFERENCES suppliers(supplier_id)
+    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
 );
 CREATE TABLE order_items (
     order_id BIGINT NOT NULL,
@@ -42,7 +40,6 @@ CREATE TABLE order_items (
 
 -- 4. Use indexes for optimization (insert ~500,000 rows into at least one or more key tables)
 
-CREATE INDEX idx_products_category_id ON products(category_id);
 CREATE INDEX idx_order_items_product_id ON order_items(product_id);
 CREATE INDEX idx_orders_customer_id ON orders(customer_id);
 CREATE INDEX idx_orders_order_date ON orders(order_date);
@@ -71,7 +68,6 @@ ALTER TABLE products MODIFY price BIGINT COMMENT 'ціна одиниці тов
 ALTER TABLE orders COMMENT = 'інформація про замовлення';
 ALTER TABLE orders MODIFY order_id BIGINT COMMENT 'ідентифікатор замовлення';
 ALTER TABLE orders MODIFY customer_id BIGINT COMMENT 'замовник';
-ALTER TABLE orders MODIFY supplier_id BIGINT COMMENT 'постачальник';
 ALTER TABLE orders MODIFY order_date DATE COMMENT 'дата оформлення замовлення';
 
 ALTER TABLE order_items COMMENT = 'позиції в замовленні';
@@ -111,33 +107,34 @@ select * from view_of_orders;
 
 -- *3. Create a stored procedure
 
+DROP PROCEDURE IF EXISTS create_order;
+
+
 DELIMITER //
+
 CREATE PROCEDURE create_order(
-    IN cid BIGINT,
-    IN pid BIGINT,
-    IN qty INT
+    IN customerid BIGINT,
+    IN productid BIGINT,
+    IN quantity INT
 )
 BEGIN
-  INSERT INTO orders (customer_id, supplier_id, order_date)
-  SELECT cid, s.supplier_id, CURDATE()
-  FROM products p
-  JOIN suppliers s ON p.category_id = s.category_id
-  WHERE p.product_id = pid
-  LIMIT 1;
+  INSERT INTO orders (customer_id, order_date)
+  VALUES (customerid, CURDATE());
 
   INSERT INTO order_items (order_id, product_id, quantity)
-  SELECT o.order_id, pid, qty
+  SELECT o.order_id, productid, quantity
   FROM orders o
-  WHERE o.customer_id = cid
+  WHERE o.customer_id = customerid
   ORDER BY o.order_id DESC
   LIMIT 1;
-END; // 
+END;
+//
+
 DELIMITER ;
 
 CALL create_order(1, 2, 3);
 select * from orders where customer_id = 1 and order_date = curdate();
 select * from order_items where product_id = 2 and quantity = 3;
-
 
 -- *4.	Create a trigger or function
 
